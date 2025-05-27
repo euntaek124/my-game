@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>수직선 초록 귀여운 토끼 드래그</title>
+<style>
+  body {
+    font-family: '맑은 고딕', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 90vh;
+    background: #f5f7fa;
+    margin: 0;
+  }
+  .container {
+    width: 730px;
+    text-align: center;
+  }
+  .number-line {
+    position: relative;
+    height: 120px;
+    width: 720px;
+    margin: 60px 0 40px;
+    user-select: none;
+  }
+  .line {
+    position: absolute;
+    top: 80px;
+    left: 5px;
+    width: 710px;
+    border-top: 4px solid #333;
+  }
+  .tick {
+    position: absolute;
+    top: 70px;
+    width: 2px;
+    height: 20px;
+    background: #333;
+    box-sizing: border-box;
+    border: none;
+    box-shadow: none;
+  }
+  .tick-label {
+    position: absolute;
+    top: 110px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    user-select: none;
+    transform: translateX(-50%);
+    width: 20px;
+  }
+  .draggable-point {
+    width: 40px;
+    height: 40px;
+    position: absolute;
+    top: 36px;  /* 버튼 위치 */
+    cursor: grab;
+    user-select: none;
+  }
+  .draggable-point svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 3px rgba(255, 105, 180, 0.7));
+    transition: filter 0.3s ease;
+  }
+  .draggable-point svg path, 
+  .draggable-point svg circle, 
+  .draggable-point svg ellipse {
+    fill: #ff69b4; /* 핑크색 */
+    stroke: #c71585;
+    stroke-width: 1;
+  }
+  .draggable-point.dragging svg {
+    filter: drop-shadow(0 0 8px rgba(199, 21, 133, 1));
+  }
+  .value-label {
+    margin-top: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #4a90e2;
+  }
+  .tick-label:hover {
+    color: #4a90e2;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>수직선 눈금 간격 및 굵기 고정 (핑크 귀여운 토끼 드래그)</h2>
+  <div id="numberLine" class="number-line" aria-label="수직선">
+    <div class="line"></div>
+    <div id="point" class="draggable-point" tabindex="0" aria-label="드래그 가능한 토끼 점" style="background:none;">
+      <!-- 귀여운 핑크 토끼 SVG -->
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+        <!-- 몸통 -->
+        <ellipse cx="32" cy="38" rx="18" ry="20"/>
+        <!-- 머리 -->
+        <circle cx="32" cy="18" r="14"/>
+        <!-- 귀 -->
+        <ellipse cx="22" cy="0" rx="8" ry="18"/>
+        <ellipse cx="42" cy="0" rx="8" ry="18"/>
+        <!-- 눈 -->
+        <circle cx="24" cy="18" r="3" fill="#fff"/>
+        <circle cx="40" cy="18" r="3" fill="#fff"/>
+        <circle cx="24" cy="18" r="1.5" fill="#000"/>
+        <circle cx="40" cy="18" r="1.5" fill="#000"/>
+        <!-- 코 -->
+        <ellipse cx="32" cy="26" rx="3" ry="2" fill="#c71585"/>
+        <!-- 볼 -->
+        <circle cx="18" cy="30" r="4" fill="#ffb6c1" opacity="0.7"/>
+        <circle cx="46" cy="30" r="4" fill="#ffb6c1" opacity="0.7"/>
+        <!-- 다리 -->
+        <ellipse cx="16" cy="54" rx="6" ry="10"/>
+        <ellipse cx="48" cy="54" rx="6" ry="10"/>
+      </svg>
+    </div>
+  </div>
+  <div id="valueLabel" class="value-label">위치: 0</div>
+</div>
+
+<script>
+  const numberLine = document.getElementById('numberLine');
+  const point = document.getElementById('point');
+  const valueLabel = document.getElementById('valueLabel');
+
+  const min = 0;
+  const max = 10;
+  const lineWidth = 710;
+  const offsetLeft = 5;
+
+  for(let i = min; i <= max; i++) {
+    const posX = offsetLeft + (i / max) * lineWidth;
+
+    const tick = document.createElement('div');
+    tick.className = 'tick';
+    tick.style.left = `${posX}px`;
+    numberLine.appendChild(tick);
+
+    const label = document.createElement('div');
+    label.className = 'tick-label';
+    label.style.left = `${posX}px`;
+    label.textContent = i;
+    label.setAttribute('tabindex', 0);
+    label.setAttribute('role', 'button');
+    label.setAttribute('aria-label', `${i} 위치로 이동`);
+    label.addEventListener('click', () => {
+      movePointToSnap(i);
+    });
+    label.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        movePointToSnap(i);
+      }
+    });
+    numberLine.appendChild(label);
+  }
+
+  function initPointPosition() {
+    const posX = offsetLeft + (min / max) * lineWidth;
+    const leftX = posX - point.offsetWidth / 2;
+    point.style.left = `${leftX}px`;
+    updateValueLabel(posX);
+  }
+
+  let dragging = false;
+
+  point.addEventListener('mousedown', (e) => {
+    dragging = true;
+    point.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if(dragging) {
+      dragging = false;
+      point.classList.remove('dragging');
+      snapPointToNearest();
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if(!dragging) return;
+
+    const rect = numberLine.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+
+    const minX = offsetLeft - point.offsetWidth / 2;
+    const maxX = offsetLeft + lineWidth - point.offsetWidth / 2;
+
+    if(x < minX) x = minX;
+    if(x > maxX) x = maxX;
+
+    point.style.left = `${x}px`;
+    updateValueLabel(x + point.offsetWidth / 2);
+  });
+
+  point.addEventListener('keydown', (e) => {
+    const step = lineWidth / max;
+    let leftPx = parseFloat(point.style.left);
+
+    if(e.key === 'ArrowLeft') {
+      leftPx -= step;
+      const minX = offsetLeft - point.offsetWidth / 2;
+      if(leftPx < minX) leftPx = minX;
+      point.style.left = `${leftPx}px`;
+      snapPointToNearest();
+    } else if(e.key === 'ArrowRight') {
+      leftPx += step;
+      const maxX = offsetLeft + lineWidth - point.offsetWidth / 2;
+      if(leftPx > maxX) leftPx = maxX;
+      point.style.left = `${leftPx}px`;
+      snapPointToNearest();
+    }
+  });
+
+  function updateValueLabel(centerX) {
+    let relativeX = centerX - offsetLeft;
+    if(relativeX < 0) relativeX = 0;
+    if(relativeX > lineWidth) relativeX = lineWidth;
+
+    const value = Math.round((relativeX / lineWidth) * max);
+    valueLabel.textContent = `위치: ${value}`;
+  }
+
+  function snapPointToNearest() {
+    const leftPx = parseFloat(point.style.left);
+    const centerX = leftPx + point.offsetWidth / 2;
+
+    let ratio = (centerX - offsetLeft) / lineWidth;
+    if(ratio < 0) ratio = 0;
+    if(ratio > 1) ratio = 1;
+
+    const snapValue = Math.round(ratio * max);
+    movePointToSnap(snapValue);
+  }
+
+  function movePointToSnap(value) {
+    const posX = offsetLeft + (value / max) * lineWidth;
+    const leftX = posX - point.offsetWidth / 2;
+
+    point.style.left = `${leftX}px`;
+    updateValueLabel(posX);
+  }
+
+  window.onload = initPointPosition;
+</script>
+</body>
+</html>
