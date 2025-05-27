@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>수직선으로 문제를 풀어보자!</title>
+  <style>
+    body {
+      font-family: '맑은 고딕', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 95vh;
+      background: #f5f7fa;
+      margin: 0;
+    }
+    .container {
+      width: 730px;
+      text-align: center;
+    }
+    .container h2 {
+      font-size: 32px;
+      font-weight: bold;
+      color: #222;
+      margin-bottom: 20px;
+    }
+    .number-line {
+      position: relative;
+      height: 160px;
+      width: 720px;
+      margin: 40px 0;
+      user-select: none;
+      touch-action: none;
+    }
+    .line {
+      position: absolute;
+      top: 100px;
+      left: 5px;
+      width: 710px;
+      border-top: 4px solid #333;
+    }
+    .tick {
+      position: absolute;
+      top: 90px;
+      width: 2px;
+      height: 20px;
+      background: #333;
+    }
+    .tick-label {
+      position: absolute;
+      top: 120px;
+      font-size: 20px;
+      font-weight: bold;
+      transform: translateX(-50%);
+    }
+    .draggable-point {
+      width: 40px;
+      height: 40px;
+      position: absolute;
+      top: 50px;
+      cursor: grab;
+      font-size: 32px;
+      line-height: 40px;
+      touch-action: none;
+    }
+    .white {
+      color: #999;
+    }
+    .gray {
+      color: #666;
+    }
+    .value-label {
+      margin-top: 10px;
+      font-size: 44px;
+      font-weight: bold;
+      color: #1f3a93;
+    }
+    .arc-label {
+      position: absolute;
+      top: 20px;
+      font-size: 16px;
+      font-weight: bold;
+      background: #fff3e0;
+      border-radius: 10px;
+      padding: 2px 6px;
+    }
+    #arcLabel1 {
+      color: #e67e22;
+    }
+    #arcLabel2 {
+      color: #27ae60;
+      background: #eaffea;
+    }
+    svg.arc {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🐇 수직선으로 문제를 풀어보자! 🥕</h2>
+    <div id="numberLine" class="number-line">
+      <div class="line"></div>
+      <svg id="arcSvg" class="arc" width="720" height="100"></svg>
+      <div id="arcLabel1" class="arc-label"></div>
+      <div id="arcLabel2" class="arc-label"></div>
+      <div id="point1" class="draggable-point white" tabindex="0">🐇</div>
+      <div id="point2" class="draggable-point gray" tabindex="0">🥕</div>
+    </div>
+    <div id="valueLabel" class="value-label">두 번째 토끼 위치: 0</div>
+  </div>
+
+  <script>
+    const numberLine = document.getElementById('numberLine');
+    const valueLabel = document.getElementById('valueLabel');
+    const arcSvg = document.getElementById('arcSvg');
+    const arcLabel1 = document.getElementById('arcLabel1');
+    const arcLabel2 = document.getElementById('arcLabel2');
+
+    const min = 0, max = 10, lineWidth = 710, offsetLeft = 5;
+    const step = lineWidth / (max - min);
+
+    for(let i = min; i <= max; i++) {
+      const posX = offsetLeft + (i / max) * lineWidth;
+      const tick = document.createElement('div');
+      tick.className = 'tick';
+      tick.style.left = `${posX}px`;
+      numberLine.appendChild(tick);
+
+      const label = document.createElement('div');
+      label.className = 'tick-label';
+      label.style.left = `${posX}px`;
+      label.textContent = i;
+      numberLine.appendChild(label);
+    }
+
+    function makeDraggable(id, onMove) {
+      const el = document.getElementById(id);
+      let dragging = false;
+
+      function startDrag(e) {
+        dragging = true;
+        e.preventDefault();
+      }
+
+      function endDrag() {
+        dragging = false;
+      }
+
+      function doDrag(clientX) {
+        const rect = numberLine.getBoundingClientRect();
+        let x = clientX - rect.left - 20;
+        x = Math.max(offsetLeft - 20, Math.min(offsetLeft + lineWidth - 20, x));
+        const value = Math.round((x + 20 - offsetLeft) / step);
+        const snappedX = offsetLeft - 20 + value * step;
+        el.style.left = `${snappedX}px`;
+        onMove();
+      }
+
+      el.addEventListener('mousedown', e => startDrag(e));
+      document.addEventListener('mouseup', endDrag);
+      document.addEventListener('mousemove', e => {
+        if (dragging) doDrag(e.clientX);
+      });
+
+      el.addEventListener('touchstart', e => startDrag(e.touches[0]), { passive: false });
+      document.addEventListener('touchend', endDrag);
+      document.addEventListener('touchmove', e => {
+        if (dragging) {
+          doDrag(e.touches[0].clientX);
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      return el;
+    }
+
+    const point1 = makeDraggable('point1', update);
+    const point2 = makeDraggable('point2', update);
+
+    function getValue(el) {
+      const x = parseFloat(el.style.left) + 20 - offsetLeft;
+      return Math.round((x / lineWidth) * max);
+    }
+
+    function drawArc(x1, x2, labelEl, color = '#e67e22') {
+      const arc = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      const start = Math.min(x1, x2), end = Math.max(x1, x2);
+      const mid = (start + end) / 2;
+      const radius = (end - start) / 2;
+      arc.setAttribute("d", `M${start},100 A${radius},40 0 0 1 ${end},100`);
+      arc.setAttribute("stroke", color);
+      arc.setAttribute("stroke-width", "2");
+      arc.setAttribute("fill", "none");
+      arcSvg.appendChild(arc);
+
+      labelEl.style.left = `${mid - 20}px`;
+      const diff = getValueByX(x2) - getValueByX(x1);
+      labelEl.textContent = diff >= 0 ? `+${diff}` : `${diff}`;
+    }
+
+    function getValueByX(x) {
+      return Math.round(((x - offsetLeft) / lineWidth) * max);
+    }
+
+    function update() {
+      arcSvg.innerHTML = '';
+      const x0 = offsetLeft;
+      const x1 = parseFloat(point1.style.left) + 20;
+      const x2 = parseFloat(point2.style.left) + 20;
+      drawArc(x0, x1, arcLabel1, '#e67e22');
+      drawArc(x1, x2, arcLabel2, '#27ae60');
+
+      const v1 = getValue(point1);
+      const v2 = getValue(point2);
+      const diff = v2 - v1;
+      const sign = diff >= 0 ? '+' : '';
+      valueLabel.textContent = `${v1} ${sign}${diff} = ${v2}`;
+    }
+
+    window.onload = () => {
+      point1.style.left = `${offsetLeft - 20 + lineWidth / 4}px`;
+      point2.style.left = `${offsetLeft - 20 + lineWidth / 2}px`;
+      update();
+    };
+  </script>
+</body>
+</html>
